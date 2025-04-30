@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { auth } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 function FavoritesForm({ addFavorite }) {
   const [city, setCity] = useState('');
+  const [user, setUser] = useState(null);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const user = auth.currentUser;
     if (!user) {
       alert('Please log in to add favorites');
       return;
@@ -18,13 +26,17 @@ function FavoritesForm({ addFavorite }) {
       body: JSON.stringify({ city, userId: user.uid })
     };
 
-    fetch(`${process.env.VITE_API_URL}/favorites`, configObj)
-      .then((res) => res.json())
-      .then((data) => {
-        addFavorite(data);
-        setCity('');
-      })
-      .catch(() => alert('Error adding favorite'));
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/favorites`, configObj);
+      if (!res.ok) throw new Error('Failed to add favorite');
+      const data = await res.json();
+      addFavorite(data);
+      setCity('');
+      alert('City added to favorites!');
+    } catch (err) {
+      console.error('Error adding favorite:', err);
+      alert('Error adding favorite');
+    }
   };
 
   return (
